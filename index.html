@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Déclaration de Problème Industriel</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .microphone-container {
+            display: flex;
+            justify-content: center;
+            margin: 30px 0;
+        }
+        .microphone-button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            font-size: 24px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+        .microphone-button:hover {
+            background-color: #2980b9;
+        }
+        .microphone-button.recording {
+            background-color: #e74c3c;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        .transcript-container, .response-container {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        .transcript-container h2, .response-container h2 {
+            margin-top: 0;
+            color: #2c3e50;
+            font-size: 18px;
+        }
+        .transcript {
+            min-height: 100px;
+            margin-bottom: 10px;
+        }
+        .response {
+            min-height: 100px;
+        }
+        .status {
+            text-align: center;
+            margin-top: 15px;
+            color: #7f8c8d;
+            font-style: italic;
+        }
+        .send-button {
+            display: block;
+            margin: 20px auto 0;
+            padding: 10px 20px;
+            background-color: #2ecc71;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .send-button:hover {
+            background-color: #27ae60;
+        }
+        .send-button:disabled {
+            background-color: #95a5a6;
+            cursor: not-allowed;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+        }
+        .loading.visible {
+            display: block;
+        }
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border-left-color: #3498db;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .summary-container {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            background-color: #e8f4fc;
+            display: none;
+        }
+        .summary-container h2 {
+            margin-top: 0;
+            color: #2c3e50;
+            font-size: 18px;
+        }
+        .summary-item {
+            margin-bottom: 10px;
+        }
+        .summary-label {
+            font-weight: bold;
+            color: #34495e;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Déclaration de Problème Industriel</h1>
+        
+        <div class="microphone-container">
+            <button id="microphone-button" class="microphone-button">
+                <i class="microphone-icon">🎤</i>
+            </button>
+        </div>
+        
+        <div class="status" id="status">
+            Appuyez sur le bouton microphone pour commencer l'enregistrement
+        </div>
+        
+        <div class="transcript-container">
+            <h2>Votre déclaration :</h2>
+            <div id="transcript" class="transcript"></div>
+            <button id="send-button" class="send-button" disabled>Envoyer</button>
+        </div>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Analyse en cours...</p>
+        </div>
+        
+        <div class="response-container">
+            <h2>Réponse du système :</h2>
+            <div id="response" class="response"></div>
+        </div>
+        
+        <div class="summary-container" id="summary-container">
+            <h2>Résumé du problème :</h2>
+            <div class="summary-item"><span class="summary-label">Quoi :</span> <span id="summary-quoi"></span></div>
+            <div class="summary-item"><span class="summary-label">Qui :</span> <span id="summary-qui"></span></div>
+            <div class="summary-item"><span class="summary-label">Où :</span> <span id="summary-ou"></span></div>
+            <div class="summary-item"><span class="summary-label">Quand :</span> <span id="summary-quand"></span></div>
+            <div class="summary-item"><span class="summary-label">Comment :</span> <span id="summary-comment"></span></div>
+            <div class="summary-item"><span class="summary-label">Pourquoi :</span> <span id="summary-pourquoi"></span></div>
+        </div>
+    </div>
+
+
+    <script>
+        // Configuration
+        const WEBHOOK_URL = 'https://firdaous-bakkali.app.n8n.cloud/webhook/start-conversation'; 
+        let sessionId = null;
+        let recognition = null;
+        let isRecording = false;
+        let transcriptText = '';
+        let allQuestionsAnswered = false;
+        
+        // Éléments du DOM
+        const microphoneButton = document.getElementById('microphone-button');
+        const statusElement = document.getElementById('status');
+        const transcriptElement = document.getElementById('transcript');
+        const sendButton = document.getElementById('send-button');
+        const loadingElement = document.getElementById('loading');
+        const responseElement = document.getElementById('response');
+        const summaryContainer = document.getElementById('summary-container');
+        
+        // Vérifier si la reconnaissance vocale est disponible
+        if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+            statusElement.textContent = 'La reconnaissance vocale n\'est pas prise en charge par votre navigateur.';
+            microphoneButton.disabled = true;
+        } else {
+            // Initialiser la reconnaissance vocale
+            recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+            recognition.lang = 'fr-FR';
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            
+            // Générer un ID de session unique
+            sessionId = generateSessionId();
+            
+            // Événements de reconnaissance vocale
+            recognition.onstart = function() {
+                isRecording = true;
+                microphoneButton.classList.add('recording');
+                statusElement.textContent = 'Écoute en cours...';
+            };
+            
+            recognition.onresult = function(event) {
+                let interimTranscript = '';
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    if (event.results[i].isFinal) {
+                        transcriptText += event.results[i][0].transcript + ' ';
+                    } else {
+                        interimTranscript += event.results[i][0].transcript;
+                    }
+                }
+                
+                transcriptElement.innerHTML = transcriptText + '<i>' + interimTranscript + '</i>';
+                if (transcriptText.trim() !== '') {
+                    sendButton.disabled = false;
+                }
+            };
+            
+            recognition.onerror = function(event) {
+                console.error('Erreur de reconnaissance:', event.error);
+                stopRecording();
+                statusElement.textContent = 'Erreur de reconnaissance vocale: ' + event.error;
+            };
+            
+            recognition.onend = function() {
+                stopRecording();
+            };
+        }
+        
+        // Événements des boutons
+        microphoneButton.addEventListener('click', toggleRecording);
+        sendButton.addEventListener('click', sendTranscriptToWebhook);
+        
+        // Fonctions
+        function toggleRecording() {
+            if (isRecording) {
+                recognition.stop();
+            } else {
+                recognition.start();
+            }
+        }
+        
+        function stopRecording() {
+            isRecording = false;
+            microphoneButton.classList.remove('recording');
+            statusElement.textContent = 'Enregistrement terminé';
+        }
+        
+        function sendTranscriptToWebhook() {
+            if (transcriptText.trim() === '') return;
+            
+            loadingElement.classList.add('visible');
+            sendButton.disabled = true;
+            
+            fetch(WEBHOOK_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    sessionId: sessionId,
+                    message: transcriptText
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                loadingElement.classList.remove('visible');
+                handleResponse(data);
+                transcriptText = '';
+                transcriptElement.textContent = '';
+                sendButton.disabled = true;
+            })
+            .catch(error => {
+                console.error('Erreur:', error);
+                loadingElement.classList.remove('visible');
+                responseElement.textContent = 'Erreur de communication avec le serveur.';
+                sendButton.disabled = false;
+            });
+        }
+        
+        function handleResponse(data) {
+            // Afficher la réponse du système
+            responseElement.textContent = data.message || 'Aucune réponse';
+
+            // Désactiver temporairement le résumé
+            summaryContainer.style.display = 'none';
+        }
+
+        
+        function updateSummary(data) {
+            document.getElementById('summary-quoi').textContent = data.quoi || 'Non spécifié';
+            document.getElementById('summary-qui').textContent = data.qui || 'Non spécifié';
+            document.getElementById('summary-ou').textContent = data.ou || 'Non spécifié';
+            document.getElementById('summary-quand').textContent = data.quand || 'Non spécifié';
+            document.getElementById('summary-comment').textContent = data.comment || 'Non spécifié';
+            document.getElementById('summary-pourquoi').textContent = data.pourquoi || 'Non spécifié';
+        }
+        
+        function generateSessionId() {
+            // Génère un entier aléatoire dans la plage de int8 (signed 64-bit)
+            return Math.floor(Math.random() * Number.MAX_SAFE_INTEGER);
+        }
+
+    </script>
+</body>
+</html>
