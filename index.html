@@ -153,10 +153,11 @@
         </div>
         
         <div class="transcript-container">
-            <h2>Votre déclaration :</h2>
-            <div id="transcript" class="transcript"></div>
+            <h2>Votre déclaration (modifiable) :</h2>
+            <textarea id="text-input" class="transcript" rows="6" placeholder="Décrivez ici votre problème..."></textarea>
             <button id="send-button" class="send-button" disabled>Envoyer</button>
         </div>
+        
         
         <div class="loading" id="loading">
             <div class="spinner"></div>
@@ -191,6 +192,7 @@
         
         // Éléments du DOM
         const microphoneButton = document.getElementById('microphone-button');
+        const textInputElement = document.getElementById('text-input');
         const statusElement = document.getElementById('status');
         const transcriptElement = document.getElementById('transcript');
         const sendButton = document.getElementById('send-button');
@@ -220,20 +222,23 @@
             };
             
             recognition.onresult = function(event) {
-                let interimTranscript = '';
-                for (let i = event.resultIndex; i < event.results.length; i++) {
-                    if (event.results[i].isFinal) {
-                        transcriptText += event.results[i][0].transcript + ' ';
-                    } else {
-                        interimTranscript += event.results[i][0].transcript;
-                    }
+            let interimTranscript = '';
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                if (event.results[i].isFinal) {
+                    transcriptText += event.results[i][0].transcript + ' ';
+                } else {
+                    interimTranscript += event.results[i][0].transcript;
                 }
-                
-                transcriptElement.innerHTML = transcriptText + '<i>' + interimTranscript + '</i>';
-                if (transcriptText.trim() !== '') {
-                    sendButton.disabled = false;
-                }
-            };
+            }
+
+            // Afficher dans le champ textarea
+            textInputElement.value = transcriptText + interimTranscript;
+            
+            if (textInputElement.value.trim() !== '') {
+                sendButton.disabled = false;
+            }
+        };
+
             
             recognition.onerror = function(event) {
                 console.error('Erreur de reconnaissance:', event.error);
@@ -283,11 +288,12 @@
 
         
         function sendTranscriptToWebhook() {
-            if (transcriptText.trim() === '') return;
-            
+            const finalText = textInputElement.value.trim();
+            if (finalText === '') return;
+
             loadingElement.classList.add('visible');
             sendButton.disabled = true;
-            
+
             fetch(WEBHOOK_URL, {
                 method: 'POST',
                 headers: {
@@ -295,7 +301,7 @@
                 },
                 body: JSON.stringify({
                     sessionId: sessionId,
-                    message: transcriptText
+                    message: finalText
                 })
             })
             .then(response => response.json())
@@ -303,7 +309,7 @@
                 loadingElement.classList.remove('visible');
                 handleResponse(data);
                 transcriptText = '';
-                transcriptElement.textContent = '';
+                textInputElement.value = '';
                 sendButton.disabled = true;
             })
             .catch(error => {
@@ -313,7 +319,7 @@
                 sendButton.disabled = false;
             });
         }
-        
+
         function handleResponse(data) {
             const message = data.message || 'Aucune réponse';
             responseElement.textContent = message;
