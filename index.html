@@ -264,6 +264,23 @@
             microphoneButton.classList.remove('recording');
             statusElement.textContent = 'Enregistrement terminé';
         }
+
+        function speakText(text) {
+            const synth = window.speechSynthesis;
+            if (!synth) {
+                console.warn("Synthèse vocale non supportée par ce navigateur.");
+                return;
+            }
+
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'fr-FR';
+            utterance.pitch = 1;
+            utterance.rate = 1;
+            utterance.volume = 1;
+
+            synth.speak(utterance);
+        }
+
         
         function sendTranscriptToWebhook() {
             if (transcriptText.trim() === '') return;
@@ -298,12 +315,16 @@
         }
         
         function handleResponse(data) {
-            // Afficher la réponse du système
-            responseElement.textContent = data.message || 'Aucune réponse';
+            const message = data.message || 'Aucune réponse';
+            responseElement.textContent = message;
 
-            // Désactiver temporairement le résumé
+            // Lire la réponse à haute voix
+            speakText(message);
+
+            // Optionnel : cacher le résumé pour l’instant
             summaryContainer.style.display = 'none';
         }
+
 
         
         function updateSummary(data) {
