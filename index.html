@@ -193,6 +193,10 @@
         // Éléments du DOM
         const microphoneButton = document.getElementById('microphone-button');
         const textInputElement = document.getElementById('text-input');
+        // Activer le bouton "Envoyer" dès qu'il y a du texte dans le champ textarea
+        textInputElement.addEventListener('input', () => {
+            sendButton.disabled = textInputElement.value.trim() === '';
+        });
         const statusElement = document.getElementById('status');
         const transcriptElement = document.getElementById('transcript');
         const sendButton = document.getElementById('send-button');
